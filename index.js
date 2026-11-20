@@ -8,12 +8,16 @@ const app = express();
 const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:3000"];
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 
+// webhook ALOADA, express.json() er AGE rakhte hobe (raw body lagbe)
+app.use("/api/webhook", require("./routes/webhook"));
+
 app.use(express.json());
 
 app.get("/", (req, res) => res.send("FixMate server is running"));
 
 app.use("/api/services", require("./routes/services"));
 app.use("/api/bookings", require("./routes/bookings"));
+app.use("/api/payments", require("./routes/payments"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/users", require("./routes/users"));
 

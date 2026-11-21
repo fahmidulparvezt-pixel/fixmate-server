@@ -18,18 +18,28 @@ app.use(
   })
 );
 
+// Route file load kore, function na hole kon file ta Vercel log e dekhabe
+const loadRoute = (file) => {
+  const route = require(file);
+  console.log(`route ${file}: ${typeof route}`);
+  if (typeof route !== "function") {
+    throw new Error(`Route ${file} did not export a router (got ${typeof route})`);
+  }
+  return route;
+};
+
 // webhook ALOADA, express.json() er AGE rakhte hobe (raw body lagbe)
-app.use("/api/webhook", require("./routes/webhook"));
+app.use("/api/webhook", loadRoute("./routes/webhook"));
 
 app.use(express.json());
 
 app.get("/", (req, res) => res.send("FixMate server is running"));
 
-app.use("/api/services", require("./routes/services"));
-app.use("/api/bookings", require("./routes/bookings"));
-app.use("/api/payments", require("./routes/payments"));
-app.use("/api/admin", require("./routes/admin"));
-app.use("/api/users", require("./routes/users"));
+app.use("/api/services", loadRoute("./routes/services"));
+app.use("/api/bookings", loadRoute("./routes/bookings"));
+app.use("/api/payments", loadRoute("./routes/payments"));
+app.use("/api/admin", loadRoute("./routes/admin"));
+app.use("/api/users", loadRoute("./routes/users"));
 
 // Unknown route
 app.use((req, res) => {

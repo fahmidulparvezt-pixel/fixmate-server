@@ -2,12 +2,8 @@ const express = require("express");
 const { ObjectId } = require("mongodb");
 const { getDB } = require("../config/db");
 const { verifyToken, verifyAdmin } = require("../middlewares/auth");
-
 const router = express.Router();
-
-// sob admin route e age token, tarpor admin role check
 router.use(verifyToken, verifyAdmin);
-
 const ROLES = ["customer", "technician", "admin"];
 const APPROVALS = ["pending", "approved", "rejected"];
 const BOOKING_STATUSES = [
@@ -18,31 +14,47 @@ const BOOKING_STATUSES = [
   "completed",
   "cancelled",
 ];
-
-// GET /api/admin/stats  -> overview cards ar chart data
 router.get("/stats", async (req, res) => {
   try {
     const db = await getDB();
-
     const [totalUsers, totalTechnicians, pendingServices, totalServices, totalBookings] =
       await Promise.all([
         db.collection("user").countDocuments(),
-        db.collection("user").countDocuments({ role: "technician" }),
-        db.collection("services").countDocuments({ approvalStatus: "pending" }),
+        db.collection("user").countDocuments({
+          role: "technician",
+        }),
+        db.collection("services").countDocuments({
+          approvalStatus: "pending",
+        }),
         db.collection("services").countDocuments(),
         db.collection("bookings").countDocuments(),
       ]);
-
     const byStatus = await db
       .collection("bookings")
-      .aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }])
+      .aggregate([
+        {
+          $group: {
+            _id: "$status",
+            count: {
+              $sum: 1,
+            },
+          },
+        },
+      ])
       .toArray();
-
     const revenueAgg = await db
       .collection("payments")
-      .aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }])
+      .aggregate([
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: "$amount",
+            },
+          },
+        },
+      ])
       .toArray();
-
     res.send({
       totalUsers,
       totalTechnicians,
@@ -50,59 +62,77 @@ router.get("/stats", async (req, res) => {
       totalServices,
       totalBookings,
       totalRevenue: revenueAgg[0]?.total || 0,
-      bookingsByStatus: byStatus.map((s) => ({ status: s._id, count: s.count })),
+      bookingsByStatus: byStatus.map((s) => ({
+        status: s._id,
+        count: s.count,
+      })),
     });
   } catch (err) {
-    res.status(500).send({ message: "Failed to load stats" });
+    res.status(500).send({
+      message: "Failed to load stats",
+    });
   }
 });
-
-// GET /api/admin/users
 router.get("/users", async (req, res) => {
   try {
     const db = await getDB();
     const users = await db
       .collection("user")
       .find({})
-      .sort({ createdAt: -1 })
+      .sort({
+        createdAt: -1,
+      })
       .toArray();
     res.send(users);
   } catch (err) {
-    res.status(500).send({ message: "Failed to load users" });
+    res.status(500).send({
+      message: "Failed to load users",
+    });
   }
 });
-
-// PATCH /api/admin/users/:id/role
 router.patch("/users/:id/role", async (req, res) => {
   try {
     const { role } = req.body;
-
     if (!ObjectId.isValid(req.params.id)) {
-      return res.status(404).send({ message: "User not found" });
+      return res.status(404).send({
+        message: "User not found",
+      });
     }
     if (!ROLES.includes(role)) {
-      return res.status(400).send({ message: "Invalid role" });
+      return res.status(400).send({
+        message: "Invalid role",
+      });
     }
-    // admin nijer role change korte parbe na
     if (req.params.id === req.user.id) {
-      return res.status(403).send({ message: "You cannot change your own role" });
+      return res.status(403).send({
+        message: "You cannot change your own role",
+      });
     }
-
     const db = await getDB();
-    const result = await db
-      .collection("user")
-      .updateOne({ _id: new ObjectId(req.params.id) }, { $set: { role } });
-
+    const result = await db.collection("user").updateOne(
+      {
+        _id: new ObjectId(req.params.id),
+      },
+      {
+        $set: {
+          role,
+        },
+      },
+    );
     if (result.matchedCount === 0) {
-      return res.status(404).send({ message: "User not found" });
+      return res.status(404).send({
+        message: "User not found",
+      });
     }
-    res.send({ message: `Role changed to ${role}` });
+    res.send({
+      message: `Role changed to ${role}`,
+    });
   } catch (err) {
-    res.status(500).send({ message: "Failed to change role" });
+    res.status(500).send({
+      message: "Failed to change role",
+    });
   }
 });
-
-// GET /api/admin/services?status=pending
 router.get("/services", async (req, res) => {
   try {
     const db = await getDB();
@@ -113,41 +143,55 @@ router.get("/services", async (req, res) => {
     const services = await db
       .collection("services")
       .find(query)
-      .sort({ createdAt: -1 })
+      .sort({
+        createdAt: -1,
+      })
       .toArray();
     res.send(services);
   } catch (err) {
-    res.status(500).send({ message: "Failed to load services" });
+    res.status(500).send({
+      message: "Failed to load services",
+    });
   }
 });
-
-// PATCH /api/admin/services/:id/approval
 router.patch("/services/:id/approval", async (req, res) => {
   try {
     const { approvalStatus } = req.body;
-
     if (!ObjectId.isValid(req.params.id)) {
-      return res.status(404).send({ message: "Service not found" });
+      return res.status(404).send({
+        message: "Service not found",
+      });
     }
     if (!["approved", "rejected"].includes(approvalStatus)) {
-      return res.status(400).send({ message: "Status must be approved or rejected" });
+      return res.status(400).send({
+        message: "Status must be approved or rejected",
+      });
     }
-
     const db = await getDB();
-    const result = await db
-      .collection("services")
-      .updateOne({ _id: new ObjectId(req.params.id) }, { $set: { approvalStatus } });
-
+    const result = await db.collection("services").updateOne(
+      {
+        _id: new ObjectId(req.params.id),
+      },
+      {
+        $set: {
+          approvalStatus,
+        },
+      },
+    );
     if (result.matchedCount === 0) {
-      return res.status(404).send({ message: "Service not found" });
+      return res.status(404).send({
+        message: "Service not found",
+      });
     }
-    res.send({ message: `Service ${approvalStatus}` });
+    res.send({
+      message: `Service ${approvalStatus}`,
+    });
   } catch (err) {
-    res.status(500).send({ message: "Failed to update approval" });
+    res.status(500).send({
+      message: "Failed to update approval",
+    });
   }
 });
-
-// GET /api/admin/bookings?status=
 router.get("/bookings", async (req, res) => {
   try {
     const db = await getDB();
@@ -158,28 +202,36 @@ router.get("/bookings", async (req, res) => {
     const bookings = await db
       .collection("bookings")
       .find(query)
-      .sort({ createdAt: -1 })
+      .sort({
+        createdAt: -1,
+      })
       .toArray();
     res.send(bookings);
   } catch (err) {
-    res.status(500).send({ message: "Failed to load bookings" });
+    res.status(500).send({
+      message: "Failed to load bookings",
+    });
   }
 });
-
-// GET /api/admin/payments  -> payments list + total revenue
 router.get("/payments", async (req, res) => {
   try {
     const db = await getDB();
     const payments = await db
       .collection("payments")
       .find({})
-      .sort({ paidAt: -1 })
+      .sort({
+        paidAt: -1,
+      })
       .toArray();
     const totalRevenue = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    res.send({ totalRevenue, payments });
+    res.send({
+      totalRevenue,
+      payments,
+    });
   } catch (err) {
-    res.status(500).send({ message: "Failed to load payments" });
+    res.status(500).send({
+      message: "Failed to load payments",
+    });
   }
 });
-
 module.exports = router;
